@@ -38,33 +38,44 @@ namespace Reducio.Core
                         "ErrorLoggingController.GetIncident - jsonIncident can not be null");
             
             var newIncident = JsonConvert.DeserializeObject<Incident>(jsonIncident);
-            
-            //  When the minimum data is missing catalog this as unserviceable then save
-            if (newIncident.CanIncidentBeLogged() == false)
-            {
-                newIncident.Title = "Unspecified error!";
-                newIncident.IncidentDateTime = DateTime.Now;
-                newIncident.Catalogged = false;
-                newIncident.PageName = "No page name!";
+            return LogIncident(newIncident, dataController);
+        }
 
-                var unspecifiedIncidentType = new IncidentType("Unspecified", DateTime.Now, "Error logging did not capture results", 
+        /// <summary>
+        /// Accept an Incident object, locate a potential parent incident
+        /// and related incidents, and save to document storeage 
+        /// </summary>
+        /// <param name="incident">The new Incident object</param>
+        /// <param name="dataController">Document storeage as RavenDataController</param>
+        /// <returns>Logged Incident Id as string</returns>
+        public string LogIncident(Incident incident, RavenDataController dataController)
+        {
+            //  When the minimum data is missing catalog this as unserviceable then save
+            if (incident.CanIncidentBeLogged() == false)
+            {
+                incident.Title = "Unspecified error!";
+                incident.IncidentDateTime = DateTime.Now;
+                incident.Catalogged = false;
+                incident.PageName = "No page name!";
+
+                var unspecifiedIncidentType = new IncidentType("Unspecified", DateTime.Now, "Error logging did not capture results",
                                                                         "Gather more data");
-                newIncident.IncidentType = unspecifiedIncidentType;
+                incident.IncidentType = unspecifiedIncidentType;
             }
 
             //  Has this occurred before?  Associate to parent / primary occurence
-            var parentIncident = FindParent(newIncident.HashedTitle, dataController);
-            if(string.IsNullOrEmpty(parentIncident.Id) == false)
+            var parentIncident = FindParent(incident.HashedTitle, dataController);
+            if (string.IsNullOrEmpty(parentIncident.Id) == false)
             {
-                newIncident.ParentIncidentId = parentIncident.Id;
-                newIncident.RelatedIncidents = parentIncident.RelatedIncidents;
-                newIncident.Resolved = parentIncident.Resolved;
-                newIncident.Catalogged = parentIncident.Catalogged;
+                incident.ParentIncidentId = parentIncident.Id;
+                incident.RelatedIncidents = parentIncident.RelatedIncidents;
+                incident.Resolved = parentIncident.Resolved;
+                incident.Catalogged = parentIncident.Catalogged;
             }
 
-            dataController.Save<Incident>(newIncident);
+            dataController.Save<Incident>(incident);
 
-            return newIncident.Id;
+            return incident.Id;
         }
 
         /// <summary>
